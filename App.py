@@ -24,12 +24,12 @@ with st.sidebar:
         api_key = st.secrets["GROQ_API_KEY"]
         st.success("🔑 API Key Loaded")
     else:
-        api_key = st.text_input("Enter Groq/xAI API Key", type="password")
+        api_key = st.text_input("Enter Groq API Key", type="password")
         if not api_key:
             st.warning("⚠️ Key Required to Run")
 
     st.markdown("---")
-    st.info("This agent uses **Llama 3.3 70B** (via Groq) or **Grok** logic to analyze your documents.")
+    st.info("Engine: Llama 3.3 70B (via Groq)\nStatus: Online")
 
 # --- MAIN INTERFACE ---
 st.title("📂 Document Intelligence")
@@ -47,7 +47,8 @@ def get_context(files):
                 for page in pdf.pages: text += page.extract_text() + "\n"
             else:
                 text += io.StringIO(file.getvalue().decode("utf-8")).read()
-        except: pass
+        except Exception as e: 
+            st.error(f"Error reading file: {e}")
     return text
 
 # 2. SESSION MEMORY
@@ -64,11 +65,14 @@ if prompt := st.chat_input("Query your documents..."):
     
     # Validation
     if not api_key: st.stop()
-    if not uploaded_files: 
-        st.toast("⚠️ No documents! I'm answering from general knowledge.")
-        context_data = "No documents provided."
+    
+    context_data = ""
+    if uploaded_files: 
+        with st.spinner("Analyzing documents..."):
+            context_data = get_context(uploaded_files)
     else:
-        context_data = get_context(uploaded_files)
+        st.toast("⚠️ No documents! I'm answering from general knowledge.")
+        context_data = "No specific documents provided."
 
     # User Input
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -80,7 +84,8 @@ if prompt := st.chat_input("Query your documents..."):
         full_response = ""
         
         try:
-            client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+            # --- THE FIX: Use native Groq client (No OpenAI import needed) ---
+            client = Groq(api_key=api_key)
             
             # The "Lazy RAG" Prompt
             system_prompt = f"""
@@ -92,8 +97,6 @@ if prompt := st.chat_input("Query your documents..."):
             {context_data[:100000]} 
             === CONTEXT END ===
             """
-            # Note: We truncate context to 100k chars to be safe on standard keys. 
-            # Real Grok can handle way more.
 
             stream = client.chat.completions.create(
                 model="llama-3.3-70b-versatile", 
@@ -106,7 +109,8 @@ if prompt := st.chat_input("Query your documents..."):
             
             for chunk in stream:
                 if chunk.choices[0].delta.content:
-                    full_response += chunk.choices[0].delta.content
+                    content = chunk.choices[0].delta.content
+                    full_response += content
                     placeholder.markdown(full_response + "▌")
             
             placeholder.markdown(full_response)
