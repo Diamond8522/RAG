@@ -28,6 +28,28 @@ with st.sidebar:
     
     st.markdown("---")
     st.info("Violet: Precision (0.6)\nStorm: Radical (0.9)")
+    st.markdown("---")
+    st.header("🖨️ Export Strategy")
+    
+    # Only show button if there is an API key
+    if api_key:
+        if st.button("Generate Strategy Blueprint"):
+            # Check if they actually talked first
+            if len(st.session_state.messages) > 1:
+                with st.spinner("Compiling the Master Plan..."):
+                    # Generate the text
+                    blueprint_text = generate_blueprint(st.session_state.messages, api_key)
+                    
+                    # Create the download button
+                    st.download_button(
+                        label="📥 Download .txt Report",
+                        data=blueprint_text,
+                        file_name="Echo_Strategy_Blueprint.txt",
+                        mime="text/plain"
+                    )
+                    st.success("Blueprint Ready! Click above to download.")
+            else:
+                st.warning("Talk to the agents first!")
 
 # --- MAIN INTERFACE ---
 st.title("Project Echo: The Second Brain")
@@ -49,7 +71,43 @@ def get_context(files):
                 text += io.StringIO(file.getvalue().decode("utf-8")).read()
         except Exception as e: st.error(f"Error: {e}")
     return text
-
+def generate_blueprint(history, api_key):
+    """Compiles the chat into a strategy document."""
+    # Filter out just the useful bits from the history
+    conversation = "\n".join([f"{msg['role'].upper()}: {msg['content']}" for msg in history])
+    
+    # The prompt to force Llama 3 to be a Project Manager
+    prompt = f"""
+    Analyze this conversation history between the User, Violet (Builder), and Storm (Visionary).
+    Create a structured "Project Blueprint" based on it.
+    
+    Format it exactly like this:
+    # 🚀 PROJECT ECHO: STRATEGY REPORT
+    
+    ## 🧠 STORM'S VISION (The Big Picture)
+    [Summarize the radical ideas and strategy here]
+    
+    ## 🛠 VIOLET'S BLUEPRINT (The Execution)
+    [Bullet points of specific action steps]
+    
+    ## 🔮 NEXT MOVES
+    [One final provocative thought]
+    
+    === CHAT LOG ===
+    {conversation}
+    """
+    
+    try:
+        # We create a temporary client just for this summary
+        client = Groq(api_key=api_key)
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5 
+        )
+        return completion.choices[0].message.content
+    except Exception as e:
+        return f"Error generating blueprint: {e}"
 # 2. THE PERSONAS (The "Outside the Box" Logic)
 VIOLET_SYSTEM_PROMPT = """
 You are VIOLET, the Architect.
