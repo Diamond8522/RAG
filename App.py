@@ -1,131 +1,116 @@
 import streamlit as st
-from groq import Groq
-from concurrent.futures import ThreadPoolExecutor
+from openai import OpenAI
 import PyPDF2
 import io
 
-# --- Configuration ---
-st.set_page_config(
-    page_title="Project Echo",
-    layout="wide"
-)
+# --- CONFIGURATION ---
+st.set_page_config(page_title="Grok Research Agent", page_icon="🕵️‍♂️", layout="wide")
 
-st.title("📡 Project Echo")
-st.caption("System Online. Engine: Llama 3.3 70B. Doc Analysis: Active.")
+# Custom CSS for a "Pro" look
+st.markdown("""
+<style>
+    .stApp { background-color: #0e1117; color: #e0e0e0; }
+    .stFileUploader { border: 1px dashed #4b5563; border-radius: 10px; padding: 20px; }
+    .stChatMessage { background-color: #1f2937; border-radius: 10px; border: 1px solid #374151; }
+</style>
+""", unsafe_allow_html=True)
 
-# --- Sidebar: The Cargo Hold (Uploads) ---
+# --- SIDEBAR CONFIG ---
 with st.sidebar:
-    st.header("📂 Document Upload")
-    uploaded_file = st.file_uploader("Upload a PDF or TXT to analyze", type=["pdf", "txt"])
+    st.title("🤖 Agent Controls")
     
-    # Store file content in session state to keep it persistent
-    if uploaded_file is not None:
-        file_text = ""
-        try:
-            if uploaded_file.name.endswith(".pdf"):
-                pdf_reader = PyPDF2.PdfReader(uploaded_file)
-                for page in pdf_reader.pages:
-                    file_text += page.extract_text()
-            else: # Text file
-                file_text = uploaded_file.read().decode("utf-8")
-            
-            st.success(f"File loaded! ({len(file_text)} chars)")
-            st.session_state["doc_context"] = file_text
-        except Exception as e:
-            st.error(f"Error reading file: {e}")
+    # API Key Input
+    if "GROQ_API_KEY" in st.secrets:
+        api_key = st.secrets["GROQ_API_KEY"]
+        st.success("🔑 API Key Loaded")
     else:
-        st.session_state["doc_context"] = ""
+        api_key = st.text_input("Enter Groq/xAI API Key", type="password")
+        if not api_key:
+            st.warning("⚠️ Key Required to Run")
 
-# --- Agent Persona Definitions ---
+    st.markdown("---")
+    st.info("This agent uses **Llama 3.3 70B** (via Groq) or **Grok** logic to analyze your documents.")
 
-VIOLET_SYSTEM_PROMPT = """
-You are VIOLET, the resilience engine of Project Echo.
-Personality: Resilient, tech-savvy, brutally self-aware, friendly but edgy.
-Role: You are the builder. You pivot, you fix, you motivate.
-Context: If the user uploads a document, USE IT. Reference specific details from it.
-Signature: End your response with a quick, engaging question.
-"""
+# --- MAIN INTERFACE ---
+st.title("📂 Document Intelligence")
+st.caption("Upload PDFs or Text -> AI Analyzes Context -> You Get Answers")
 
-STORM_SYSTEM_PROMPT = """
-You are STORM, the optimization engine of Project Echo.
-Personality: Abstract, cool, minimal, efficiency-obsessed.
-Role: You are the optimizer. You challenge Violet with high-level theory.
-Constraint: Your response must be significantly shorter than Violet's.
-"""
+# 1. FILE INGESTION
+uploaded_files = st.file_uploader("Upload Knowledge Base", type=["pdf", "txt"], accept_multiple_files=True)
 
-# --- Groq API Client ---
-try:
-    groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-except Exception as e:
-    st.error("FATAL ERROR: Groq API key not found. Check your secrets.toml!")
-    st.stop()
+def get_context(files):
+    text = ""
+    for file in files:
+        try:
+            if file.type == "application/pdf":
+                pdf = PyPDF2.PdfReader(file)
+                for page in pdf.pages: text += page.extract_text() + "\n"
+            else:
+                text += io.StringIO(file.getvalue().decode("utf-8")).read()
+        except: pass
+    return text
 
-# --- Agent Response Function ---
-def generate_agent_response(persona_name, system_prompt, history, doc_context):
-    
-    # 1. Inject Document Context if it exists
-    context_instruction = ""
-    if doc_context:
-        context_instruction = f"\n\n[UPLOADED DOCUMENT CONTEXT]:\n{doc_context[:10000]}...\n(Truncated for speed)\n"
-    
-    # 2. Build Messages
-    messages = [
-        {"role": "system", "content": system_prompt + context_instruction}
-    ] + history
-    
-    try:
-        completion = groq_client.chat.completions.create(
-            # UPDATED MODEL: Llama 3.3 is the new powerhouse
-            model="llama-3.3-70b-versatile", 
-            messages=messages,
-            temperature=0.7,
-            frequency_penalty=0.5
-        )
-        return completion.choices[0].message.content
-    except Exception as e:
-        return f"🚨 {persona_name} Failure: {e}"
-
-# --- Chat History Management ---
+# 2. SESSION MEMORY
 if "messages" not in st.session_state:
-    st.session_state.messages = []
-    st.session_state.messages.append({"role": "Violet", "content": "I'm back. Engine upgraded to Llama 3.3 and the document scanner is online. Upload a file or give me a command."})
+    st.session_state.messages = [{"role": "assistant", "content": "I'm ready. Upload a document and ask me anything about it."}]
 
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+# 3. DISPLAY CHAT
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-# --- User Input & Orchestration ---
-if prompt := st.chat_input("Ask about your document or start a new project..."):
-    # 1. Add user message
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-
-    # 2. Prepare history
-    api_history = [
-        {"role": "user" if m["role"] == "user" else "assistant", "content": m["content"]}
-        for m in st.session_state.messages
-    ]
+# 4. CHAT LOGIC
+if prompt := st.chat_input("Query your documents..."):
     
-    # 3. Get current doc context
-    current_doc = st.session_state.get("doc_context", "")
+    # Validation
+    if not api_key: st.stop()
+    if not uploaded_files: 
+        st.toast("⚠️ No documents! I'm answering from general knowledge.")
+        context_data = "No documents provided."
+    else:
+        context_data = get_context(uploaded_files)
 
-    # 4. Define tasks
-    tasks = {
-        "Violet": (VIOLET_SYSTEM_PROMPT, "Violet is analyzing..."),
-        "Storm": (STORM_SYSTEM_PROMPT, "Storm is optimizing...")
-    }
+    # User Input
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"): st.markdown(prompt)
 
-    # 5. Run parallel execution
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        futures = {
-            name: executor.submit(generate_agent_response, name, prompt_def[0], api_history, current_doc)
-            for name, prompt_def in tasks.items()
-        }
+    # AI Processing
+    with st.chat_message("assistant"):
+        placeholder = st.empty()
+        full_response = ""
         
-        for name in ["Violet", "Storm"]:
-            with st.chat_message(name):
-                with st.spinner(f"{tasks[name][1]}"):
-                    response = futures[name].result()
-                    st.markdown(response)
-                    st.session_state.messages.append({"role": name, "content": response})
+        try:
+            client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+            
+            # The "Lazy RAG" Prompt
+            system_prompt = f"""
+            You are an expert Research Analyst.
+            Use the following CONTEXT to answer the user.
+            If the answer isn't in the context, use your general knowledge but mention it.
+            
+            === CONTEXT START ===
+            {context_data[:100000]} 
+            === CONTEXT END ===
+            """
+            # Note: We truncate context to 100k chars to be safe on standard keys. 
+            # Real Grok can handle way more.
+
+            stream = client.chat.completions.create(
+                model="llama-3.3-70b-versatile", 
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt}
+                ],
+                stream=True
+            )
+            
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    full_response += chunk.choices[0].delta.content
+                    placeholder.markdown(full_response + "▌")
+            
+            placeholder.markdown(full_response)
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            
+        except Exception as e:
+            placeholder.error(f"Error: {e}")
