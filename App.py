@@ -4,13 +4,11 @@ import PyPDF2
 import io
 from concurrent.futures import ThreadPoolExecutor
 
-# --- CONFIGURATION ---
+# --- 1. THE BRAINS (Functions must be at the top!) ---
 def generate_blueprint(history, api_key):
     """Compiles the chat into a strategy document."""
-    # Filter out just the useful bits from the history
     conversation = "\n".join([f"{msg['role'].upper()}: {msg['content']}" for msg in history])
     
-    # The prompt to force Llama 3 to be a Project Manager
     prompt = f"""
     Analyze this conversation history between the User, Violet (Builder), and Storm (Visionary).
     Create a structured "Project Blueprint" based on it.
@@ -32,19 +30,36 @@ def generate_blueprint(history, api_key):
     """
     
     try:
-        # We create a temporary client just for this summary
         client = Groq(api_key=api_key)
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.5 
+            temperature=0.5
         )
         return completion.choices[0].message.content
     except Exception as e:
         return f"Error generating blueprint: {e}"
+
+def get_context(files):
+    """Reads uploaded PDF or TXT files."""
+    text = ""
+    for file in files:
+        try:
+            if file.type == "application/pdf":
+                pdf = PyPDF2.PdfReader(file)
+                for page in pdf.pages: 
+                    extracted = page.extract_text()
+                    if extracted: text += extracted + "\n"
+            else:
+                text += io.StringIO(file.getvalue().decode("utf-8")).read()
+        except Exception as e: 
+            st.error(f"Error reading file: {e}")
+    return text
+
+# --- 2. CONFIGURATION ---
 st.set_page_config(page_title="Project Echo", page_icon="📡", layout="wide")
 
-# Custom CSS for that "Pro" feel
+# Custom CSS
 st.markdown("""
 <style>
     .stApp { background-color: #0e1117; color: #e0e0e0; }
@@ -53,56 +68,44 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR ---
+# --- 3. SIDEBAR ---
 with st.sidebar:
     st.title("📡 Project Echo")
+    
+    # API Key
     if "GROQ_API_KEY" in st.secrets:
         api_key = st.secrets["GROQ_API_KEY"]
         st.success("System: Online")
     else:
         api_key = st.text_input("Enter Groq API Key", type="password")
         if not api_key: st.warning("⚠️ Key Required")
-    
-    st.markdown("---")
+
     st.info("Violet: Precision (0.6)\nStorm: Radical (0.9)")
+    
+    # EXPORT BUTTON
     st.markdown("---")
     st.header("🖨️ Export Strategy")
-    
-    # Only show button if there is an API key
     if api_key:
         if st.button("Generate Strategy Blueprint"):
-            # Check if they actually talked first
-            if len(st.session_state.messages) > 1:
+            if "messages" in st.session_state and len(st.session_state.messages) > 1:
                 with st.spinner("Compiling the Master Plan..."):
-                    # Generate the text
                     blueprint_text = generate_blueprint(st.session_state.messages, api_key)
-                    
-                    # Create the download button
                     st.download_button(
                         label="📥 Download .txt Report",
                         data=blueprint_text,
                         file_name="Echo_Strategy_Blueprint.txt",
                         mime="text/plain"
                     )
-                    st.success("Blueprint Ready! Click above to download.")
+                    st.success("Blueprint Ready!")
             else:
-                st.warning("Talk to the agents first!")
+                st.warning("Chat with the agents first!")
 
-# --- MAIN INTERFACE ---
+# --- 4. MAIN INTERFACE ---
 st.title("Project Echo: The Second Brain")
 st.caption("Violet builds the logic. Storm finds the strategy. Upload docs to begin.")
 
-# 1. FILE INGESTION
-uploaded_files = st.file_uploader("Upload Knowledge Base", type=["pdf", "txt"], accept_multiple_files=True)
-
-def get_context(files):
-    text = ""
-    for file in files:
-        try:
-            if file.type == "application/pdf":
-                pdf = PyPDF2.PdfReader(file)
-                for page in pdf.pages: 
-                    extracted = page.extract_text()
+# File Ingestion
+uploaded_files = st.file_uploader("Upload Knowledge Base", type=["pdf", "txt"], accept_multiple_
                     if extracted: text += extracted + "\n"
             else:
                 text += io.StringIO(file.getvalue().decode("utf-8")).read()
