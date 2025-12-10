@@ -54,74 +54,76 @@ def get_context(files):
     return text
 
 # ==============================================================================
-# 2. CONFIGURATION & VIBRANT STYLING
+# 2. CONFIGURATION & COOL/MINIMALIST STYLING
 # ==============================================================================
 
-st.set_page_config(page_title="Project Echo: High-Intensity Logic", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Project Echo: Minimalist Logic", page_icon="📡", layout="wide")
 
-# Custom CSS for a loud and vibrant aesthetic
+# Custom CSS for a Cool and Minimalist aesthetic
 st.markdown("""
 <style>
-    /* 1. Overall App Background (Deep Black/Violet Base) */
+    /* 1. Overall App Background (Light Gray/White Base) */
     .stApp {
-        background-color: #0A001A; /* Very deep, dark violet */
-        color: #00FFFF; /* Default text color is bright Cyber-Teal */
-        font-family: 'Arial', sans-serif;
+        background-color: #F8F8F8; /* Light Off-White/Gray */
+        color: #333333; /* Dark Gray for high readability */
+        font-family: 'Segoe UI', 'Roboto', sans-serif;
     }
 
-    /* 2. Sidebar Look (Intense Contrast) */
+    /* 2. Sidebar Look (Clean Contrast) */
     .stSidebar {
-        background-color: #110033; /* Darker violet for depth */
-        border-right: 3px solid #FF00FF; /* Electric Magenta/Pink divider */
+        background-color: #FFFFFF; /* Pure White Sidebar */
+        border-right: 1px solid #DDDDDD; /* Light Gray divider */
+        color: #1A1A1A;
     }
 
-    /* 3. Chat Message Containers (Highly visible feedback) */
+    /* 3. Chat Message Containers (Soft contrast on the main page) */
     .stChatMessage {
-        background-color: #1A004D; /* Lighter violet container */
-        border: 1px solid #00FFFF; /* Cyber-Teal border */
+        background-color: #FFFFFF; 
+        border: 1px solid #E0E0E0; /* Very light, soft border */
         border-radius: 8px;
-        padding: 12px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Soft shadow */
+        padding: 15px;
         margin-bottom: 10px;
     }
 
-    /* 4. Headings and Titles (LOUD and stand out) */
+    /* 4. Headings and Titles (Professional Blue Accent) */
     h1, h2, h3, .css-1d3fpjk { 
-        color: #FFFF00; /* Fluorescent Yellow/Gold for titles */
-        text-shadow: 0 0 5px #FF00FF; /* Magenta glow effect */
-        border-bottom: 2px solid #FF00FF; 
+        color: #007BFF; /* Primary Cool Blue */
+        border-bottom: 1px solid #CCCCCC; 
         padding-bottom: 5px;
         margin-top: 15px;
+        font-weight: 600;
     }
     
-    /* 5. Input Area and Buttons (Must be functional and vibrant) */
+    /* 5. Input Area and Buttons (Functional and Professional) */
     .stTextInput > div > div > input,
     .stSelectbox > div > div > button,
     .stFileUploader {
-        background-color: #222222;
-        color: #FFFF00; /* Yellow input text */
-        border: 2px solid #00FFFF; 
+        background-color: #FFFFFF;
+        color: #333333; 
+        border: 1px solid #BBBBBB; 
         border-radius: 4px;
     }
     .stButton > button {
-        background-color: #FF00FF; /* Magenta button background */
-        color: #0A001A; /* Dark text for contrast */
-        border: 2px solid #FFFF00; /* Yellow border */
-        font-weight: bold;
-        transition: transform 0.1s ease;
+        background-color: #007BFF; /* Blue button background */
+        color: #FFFFFF; /* White text for contrast */
+        border: none;
+        font-weight: 500;
+        transition: background-color 0.2s;
     }
     .stButton > button:hover {
-        transform: scale(1.03); 
+        background-color: #0056B3; /* Darker blue on hover */
     }
     
-    /* 6. Success/Error Messages (Should pop) */
+    /* 6. Success/Error Messages (Should be clean and clear) */
     .stSuccess {
-        background-color: #00FF00 !important; /* Bright Green */
-        color: #000000 !important;
-        border: 1px solid #FF00FF !important;
+        background-color: #D4EDDA !important; /* Light Green background */
+        color: #155724 !important; /* Dark Green text */
+        border: 1px solid #C3E6CB !important;
     }
     .stWarning, .stError {
-        background-color: #FF0000 !important; /* Bright Red */
-        color: #FFFF00 !important;
+        background-color: #F8D7DA !important; /* Light Red/Pink background */
+        color: #721C24 !important; /* Dark Red text */
     }
 
 </style>
@@ -212,35 +214,9 @@ if prompt := st.chat_input("Query Case Documents..."):
         try:
             client = Groq(api_key=api_key)
             # Inject context directly into the System instruction
-            # Use a default message if context_data is empty
             context_payload = context_data if context_data else 'NO FILES LOADED. ASK THE USER TO UPLOAD.'
             full_system = f"{system_prompt}\n\n[CONTEXT]:\n{context_payload}"
             
             completion = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=[{"role": "system", "content": full_system}, {"role": "user", "content": prompt_text}],
-                temperature=temp,
-                stream=False
-            )
-            return f"**{name}:** " + completion.choices[0].message.content
-        except Exception as e: return f"🚨 {name} Error: {e}"
-
-    # THE PIVOT: Exclusive Logic
-    with st.chat_message("assistant"):
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            if exclusive_lex:
-                # RUN ONLY LEX (Low Temp for accuracy)
-                futures = [executor.submit(run_agent, "Lex", f"[AUDIT TYPE: {case_type}] {prompt}", LEX_SYSTEM_PROMPT, 0.2)]
-            else:
-                # RUN THE ORIGINAL DUO (Violet/Storm)
-                futures = [
-                    executor.submit(run_agent, "Violet", prompt, VIOLET_SYSTEM_PROMPT, 0.6),
-                    executor.submit(run_agent, "Storm", prompt, STORM_SYSTEM_PROMPT, 0.9)
-                ]
-            
-            with st.spinner("Synchronizing Agents..."):
-                results = [f.result() for f in futures]
-        
-        full_response = "\n\n---\n\n".join(results)
-        st.markdown(full_response)
-        st.session_state.messages.append({"role": "assistant", "content": full_response})
