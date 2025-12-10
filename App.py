@@ -54,76 +54,81 @@ def get_context(files):
     return text
 
 # ==============================================================================
-# 2. CONFIGURATION & COOL/MINIMALIST STYLING
+# 2. CONFIGURATION & CYBER-COMMAND STYLING (Black/Blue/Green)
 # ==============================================================================
 
-st.set_page_config(page_title="Project Echo: Minimalist Logic", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Project Echo: Cyber-Command Logic", page_icon="📡", layout="wide")
 
-# Custom CSS for a Cool and Minimalist aesthetic
+# Custom CSS for a high-contrast Black, Blue, and Green aesthetic
 st.markdown("""
 <style>
-    /* 1. Overall App Background (Light Gray/White Base) */
+    /* Color Palette: 
+       Background: #000000 (Black)
+       Primary Text/Accent: #00FFFF (Bright Cyber-Blue)
+       Secondary Accent/Success: #00FF00 (Vibrant Green)
+    */
+
+    /* 1. Overall App Background (Deep Black) */
     .stApp {
-        background-color: #F8F8F8; /* Light Off-White/Gray */
-        color: #333333; /* Dark Gray for high readability */
-        font-family: 'Segoe UI', 'Roboto', sans-serif;
+        background-color: #000000;
+        color: #00FFFF; /* Default text color is bright Cyber-Blue */
+        font-family: 'Consolas', 'Courier New', monospace;
     }
 
-    /* 2. Sidebar Look (Clean Contrast) */
+    /* 2. Sidebar Look (Slightly lighter black for contrast) */
     .stSidebar {
-        background-color: #FFFFFF; /* Pure White Sidebar */
-        border-right: 1px solid #DDDDDD; /* Light Gray divider */
-        color: #1A1A1A;
+        background-color: #0A0A0A; 
+        border-right: 2px solid #00FF00; /* Vibrant Green divider */
+        color: #00FFFF;
     }
 
-    /* 3. Chat Message Containers (Soft contrast on the main page) */
+    /* 3. Chat Message Containers (Blue border on black background) */
     .stChatMessage {
-        background-color: #FFFFFF; 
-        border: 1px solid #E0E0E0; /* Very light, soft border */
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Soft shadow */
-        padding: 15px;
+        background-color: #1A1A1A; 
+        border: 1px solid #00FFFF; /* Cyber-Blue border */
+        border-radius: 4px;
+        padding: 10px;
         margin-bottom: 10px;
     }
 
-    /* 4. Headings and Titles (Professional Blue Accent) */
+    /* 4. Headings and Titles (Command Center Blue) */
     h1, h2, h3, .css-1d3fpjk { 
-        color: #007BFF; /* Primary Cool Blue */
-        border-bottom: 1px solid #CCCCCC; 
+        color: #00FFFF; 
+        border-bottom: 2px dashed #00FF00; /* Green dashed line */
         padding-bottom: 5px;
         margin-top: 15px;
-        font-weight: 600;
     }
     
-    /* 5. Input Area and Buttons (Functional and Professional) */
+    /* 5. Input Area and Buttons (Green accents) */
     .stTextInput > div > div > input,
     .stSelectbox > div > div > button,
     .stFileUploader {
-        background-color: #FFFFFF;
-        color: #333333; 
-        border: 1px solid #BBBBBB; 
+        background-color: #222222;
+        color: #00FFFF; 
+        border: 2px solid #00FF00; /* Vibrant Green Input Border */
         border-radius: 4px;
     }
     .stButton > button {
-        background-color: #007BFF; /* Blue button background */
-        color: #FFFFFF; /* White text for contrast */
-        border: none;
-        font-weight: 500;
+        background-color: #004400; /* Dark Green button background */
+        color: #00FF00; /* Green text */
+        border: 2px solid #00FFFF; /* Blue outer border */
+        font-weight: bold;
         transition: background-color 0.2s;
     }
     .stButton > button:hover {
-        background-color: #0056B3; /* Darker blue on hover */
+        background-color: #005500; 
+        box-shadow: 0 0 5px #00FFFF; /* Blue glow on hover */
     }
     
-    /* 6. Success/Error Messages (Should be clean and clear) */
+    /* 6. Success/Error Messages (Should pop) */
     .stSuccess {
-        background-color: #D4EDDA !important; /* Light Green background */
-        color: #155724 !important; /* Dark Green text */
-        border: 1px solid #C3E6CB !important;
+        background-color: #00FF00 !important; /* Bright Green Success */
+        color: #000000 !important;
+        border: 1px solid #00FFFF !important;
     }
     .stWarning, .stError {
-        background-color: #F8D7DA !important; /* Light Red/Pink background */
-        color: #721C24 !important; /* Dark Red text */
+        background-color: #FF0000 !important; /* Bright Red Error/Warning */
+        color: #00FFFF !important;
     }
 
 </style>
