@@ -5,18 +5,19 @@ import io
 from concurrent.futures import ThreadPoolExecutor
 import os
 import requests
-import json # Added for handling Tavily JSON data
+import json 
+# Note: Tavily functions are kept here but we will focus on the persona logic first.
 
 # ==============================================================================
 # 1. THE BRAINS (PENTHOUSE FUNCTIONS - MUST BE AT THE TOP FOR STABILITY)
 # ==============================================================================
 
-# --- TAVILY SEARCH FUNCTION ---
+# --- TAVILY SEARCH FUNCTION (Currently for general knowledge testing) ---
 def tavily_search(query):
     """Performs a real-time web search using the Tavily API."""
     
     # --- IMPORTANT: REPLACE THIS WITH YOUR ACTUAL TAVILY KEY ---
-    TAVILY_API_KEY = "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" 
+    TAVILY_API_KEY = "YOUR_TAVILY_API_KEY_HERE" 
     # --- OR USE STREAMLIT SECRETS: st.secrets['TAVILY_API_KEY'] ---
     
     if not TAVILY_API_KEY or TAVILY_API_KEY == "YOUR_TAVILY_API_KEY_HERE":
@@ -29,23 +30,19 @@ def tavily_search(query):
     data = {
         "api_key": TAVILY_API_KEY,
         "query": query,
-        "search_depth": "basic", # Use 'advanced' for more comprehensive search
+        "search_depth": "basic", 
         "max_results": 5,
-        "include_images": False,
-        "include_answer": True  # Request Tavily to summarize the answer
+        "include_answer": True  
     }
     
     try:
         response = requests.post(url, headers=headers, data=json.dumps(data))
-        response.raise_for_status() # Raise exception for HTTP errors (4xx or 5xx)
-        
+        response.raise_for_status() 
         search_results = response.json()
         
         if search_results.get("answer"):
-            # Return the summarized answer directly from Tavily
             return f"**SEARCH RESULT (Tavily):** {search_results['answer']}"
         
-        # If no direct answer, format the snippets
         snippets = "\n".join([f"- {result['content']}" for result in search_results.get("results", [])])
         return f"**SEARCH SNIPPETS (Tavily):**\n{snippets}"
         
@@ -57,13 +54,14 @@ def generate_blueprint(history, api_key):
     conversation = "\n".join([f"{msg['role'].upper()}: {msg['content']}" for msg in history])
     
     prompt = f"""
-    Analyze this conversation history between the User and the active Agents.
-    Create a structured "Project Blueprint" based on it.
+    Analyze this conversation history between the User, Logos (Retention/Logic), and Storm (Creativity/Strategy).
+    Create a structured "Project MNEMOSYNE Blueprint" based on it.
     
     Format exactly:
-    # 🚀 PROJECT ECHO: STRATEGY REPORT
-    ## 🛠 PLAN/FACT AUDIT
-    ## 🔮 NEXT MOVES
+    # 🚀 PROJECT MNEMOSYNE: KNOWLEDGE REPORT
+    ## 🧠 LOGOS'S RETAINED KNOWLEDGE
+    ## 🌪 STORM'S CREATIVE STRATEGY
+    ## 🔮 NEXT MOVE
     === CHAT LOG ===
     {conversation}
     """
@@ -80,8 +78,9 @@ def generate_blueprint(history, api_key):
         return f"Error generating blueprint: {e}"
 
 def get_context(files):
-    """Reads uploaded PDF or TXT files with improved error feedback."""
+    """Reads uploaded PDF or TXT files."""
     text = ""
+    # NOTE: This function is currently limited. It needs RAG (Phase 2) for large books.
     for file in files:
         try:
             if file.type == "application/pdf":
@@ -100,11 +99,13 @@ def get_context(files):
 # 2. CONFIGURATION & CYBER-COMMAND STYLING (Black/Blue/Green)
 # ==============================================================================
 
-st.set_page_config(page_title="Project Echo: Cyber-Command Logic", page_icon="📡", layout="wide")
+st.set_page_config(page_title="Project MNEMOSYNE: Knowledge Engine", page_icon="🧠", layout="wide")
 
 # Custom CSS for a high-contrast Black, Blue, and Green aesthetic
 st.markdown("""
 <style>
+    /* Color Palette: Black / Cyber-Blue / Vibrant Green */
+
     /* 1. Overall App Background (Deep Black) */
     .stApp {
         background-color: #000000;
@@ -176,27 +177,31 @@ st.markdown("""
 # ==============================================================================
 
 with st.sidebar:
-    st.title("📡 Project Echo")
+    st.title("🧠 Project MNEMOSYNE")
     
     # API Key Handling
     if "GROQ_API_KEY" in st.secrets:
         api_key = st.secrets["GROQ_API_KEY"]
-        st.success("System: Ready")
+        st.success("System: Knowledge Core Online")
     else:
         api_key = st.text_input("Enter Groq API Key", type="password")
         if not api_key: st.warning("⚠️ Key Required")
 
+    st.info("LOGOS: Logic (0.6) | STORM: Creativity (0.9)")
+    
+    # NOTE: The Lex/Exclusive mode is temporarily disabled until RAG is implemented
+    # We keep the toggle here but it won't affect execution for now.
     st.markdown("---")
-    # LEX EXCLUSIVE MODE TOGGLE
-    exclusive_lex = st.toggle("Activate EXCLUSIVE LEX Mode", help="Toggling this hides Violet & Storm to focus strictly on Legal Discovery (LEX only).")
-    case_type = st.selectbox("Document Type:", ["Exhibits", "Timeline", "Communication Logs", "Filings"])
+    st.caption("Document Integration Mode (Requires Phase 2 Upgrade)")
+    document_mode_placeholder = st.empty()
+    document_mode_placeholder.toggle("Enable RAG Search (Inactive)", disabled=True, help="Requires ChromaDB/Pinecone integration to work with large books.")
     
     st.markdown("---")
-    if api_key and st.button("Download Strategy Report"):
+    if api_key and st.button("Generate Knowledge Blueprint"):
         if "messages" in st.session_state and len(st.session_state.messages) > 1:
             with st.spinner("Compiling Blueprint..."):
                 blueprint_text = generate_blueprint(st.session_state.messages, api_key)
-            st.download_button(label="📥 Download .txt", data=blueprint_text, file_name="Project_Echo_Report.txt")
+            st.download_button(label="📥 Download .txt", data=blueprint_text, file_name="Mnemosyne_Knowledge_Report.txt")
             st.success("Blueprint Ready!")
         else:
             st.warning("Chat history required for export.")
@@ -205,35 +210,28 @@ with st.sidebar:
 # 4. MAIN INTERFACE & PERSONAS
 # ==============================================================================
 
-st.title("📂 Case Intelligence")
-st.caption("22-Page Document Analysis | Powered by Lex & Llama 3.3")
+st.title("📚 Knowledge Engine: Logos & Storm")
+st.caption("Retention and Insight. Upload documents to begin.")
 
-# FILE INGESTION
-uploaded_files = st.file_uploader("Upload Case Documents", type=["pdf", "txt"], accept_multiple_files=True)
+# FILE INGESTION (Documents will only fit into prompt until Phase 2)
+uploaded_files = st.file_uploader("Upload Knowledge Base (Small Files Only)", type=["pdf", "txt"], accept_multiple_files=True)
 
-# PERSONA DEFINITIONS
-VIOLET_SYSTEM_PROMPT = """
-You are VIOLET, the Architect.
-Role: Technical step-by-step foundation and logic.
-Personality: Resilient, clear, practical.
+# PERSONA DEFINITIONS (UPDATED)
+LOGOS_SYSTEM_PROMPT = """
+You are LOGOS, the Retention Expert.
+Role: Your sole purpose is to provide factual, structured, and logical answers. Speak only to the content of the user's query or the provided document context.
+Personality: Precise, highly accurate, focused on detail and facts.
 """
 
 STORM_SYSTEM_PROMPT = """
-You are STORM, the Agent of Intensity.
-Role: Radical Visionary thinking OUTSIDE THE BOX.
-Personality: Direct, deep, abstract. Connect the dots the user doesn't see.
-"""
-
-LEX_SYSTEM_PROMPT = """
-You are LEX, the Research Auditor. 
-Role: Document indexing and fact extraction for legal discovery.
-Task: Use the uploaded CONTEXT to build a table of facts, dates, and evidence. 
-Safety: DO NOT PROVIDE LEGAL ADVICE. Be clinical and objective.
+You are STORM, the Creative Catalyst.
+Role: Your sole purpose is to provide out-of-the-box, abstract, and strategy-focused answers. Challenge the user's assumptions and blend facts with lateral thinking.
+Personality: Provocative, deep, visionary. Lead the user to new applications.
 """
 
 # SESSION HISTORY
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Ready for discovery. Upload files to give Lex the facts."}]
+    st.session_state.messages = [{"role": "assistant", "content": "The Mnemosyne core is active. Ask Logos for facts and Storm for strategy."}]
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]): st.markdown(msg["content"])
@@ -242,7 +240,7 @@ for msg in st.session_state.messages:
 # 5. EXECUTION LOOP (Parallel Agents)
 # ==============================================================================
 
-if prompt := st.chat_input("Query Case Documents..."):
+if prompt := st.chat_input("Query Mnemosyne..."):
     if not api_key: st.stop()
     
     # 1. Get Context
@@ -257,13 +255,11 @@ if prompt := st.chat_input("Query Case Documents..."):
             client = Groq(api_key=api_key)
             
             # --- AGENT LOGIC FOR INTERNET SEARCH ---
-            # 1. Decide if search is necessary (simple check)
-            # You can make this smarter later, but for now, we'll search if the user asks a question that is clearly *not* about the documents.
+            # Search logic remains, but we primarily focus on the two agent roles now.
             search_query = None
             if not context_data and ("what is" in prompt_text.lower() or "current" in prompt_text.lower() or "latest" in prompt_text.lower()):
                 search_query = prompt_text
             
-            # 2. Execute Search if needed
             tavily_results = ""
             if search_query:
                 tavily_results = tavily_search(search_query)
@@ -281,20 +277,16 @@ if prompt := st.chat_input("Query Case Documents..."):
             return f"**{name}:** " + completion.choices[0].message.content
         except Exception as e: return f"🚨 {name} Error: {e}"
 
-    # THE PIVOT: Exclusive Logic
+    # RUN LOGOS and STORM in Parallel
     with st.chat_message("assistant"):
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            if exclusive_lex:
-                # RUN ONLY LEX 
-                futures = [executor.submit(run_agent, "Lex", f"[AUDIT TYPE: {case_type}] {prompt}", LEX_SYSTEM_PROMPT, 0.2)]
-            else:
-                # RUN THE ORIGINAL DUO (Violet/Storm)
-                futures = [
-                    executor.submit(run_agent, "Violet", prompt, VIOLET_SYSTEM_PROMPT, 0.6),
-                    executor.submit(run_agent, "Storm", prompt, STORM_SYSTEM_PROMPT, 0.9)
-                ]
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            # LOGOS (Low Temp: Logic/Retention) and STORM (High Temp: Creativity/Strategy)
+            future_logos = executor.submit(run_agent, "Logos", prompt, LOGOS_SYSTEM_PROMPT, 0.6)
+            future_storm = executor.submit(run_agent, "Storm", prompt, STORM_SYSTEM_PROMPT, 0.9)
             
-            with st.spinner("Synchronizing Agents & Searching Web..."):
+            futures = [future_logos, future_storm]
+            
+            with st.spinner("Synchronizing Knowledge Cores..."):
                 results = [f.result() for f in futures]
         
         full_response = "\n\n---\n\n".join(results)
