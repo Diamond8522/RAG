@@ -3,10 +3,54 @@ from groq import Groq
 import PyPDF2
 import io
 from concurrent.futures import ThreadPoolExecutor
+import os
+import requests
+import json # Added for handling Tavily JSON data
 
 # ==============================================================================
 # 1. THE BRAINS (PENTHOUSE FUNCTIONS - MUST BE AT THE TOP FOR STABILITY)
 # ==============================================================================
+
+# --- TAVILY SEARCH FUNCTION ---
+def tavily_search(query):
+    """Performs a real-time web search using the Tavily API."""
+    
+    # --- IMPORTANT: REPLACE THIS WITH YOUR ACTUAL TAVILY KEY ---
+    TAVILY_API_KEY = "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" 
+    # --- OR USE STREAMLIT SECRETS: st.secrets['TAVILY_API_KEY'] ---
+    
+    if not TAVILY_API_KEY or TAVILY_API_KEY == "YOUR_TAVILY_API_KEY_HERE":
+        return "ERROR: Tavily API Key not configured."
+
+    url = "https://api.tavily.com/search"
+    headers = {
+        "Content-Type": "application/json"
+    }
+    data = {
+        "api_key": TAVILY_API_KEY,
+        "query": query,
+        "search_depth": "basic", # Use 'advanced' for more comprehensive search
+        "max_results": 5,
+        "include_images": False,
+        "include_answer": True  # Request Tavily to summarize the answer
+    }
+    
+    try:
+        response = requests.post(url, headers=headers, data=json.dumps(data))
+        response.raise_for_status() # Raise exception for HTTP errors (4xx or 5xx)
+        
+        search_results = response.json()
+        
+        if search_results.get("answer"):
+            # Return the summarized answer directly from Tavily
+            return f"**SEARCH RESULT (Tavily):** {search_results['answer']}"
+        
+        # If no direct answer, format the snippets
+        snippets = "\n".join([f"- {result['content']}" for result in search_results.get("results", [])])
+        return f"**SEARCH SNIPPETS (Tavily):**\n{snippets}"
+        
+    except requests.exceptions.RequestException as e:
+        return f"ERROR: Tavily Search failed due to network or API issue: {e}"
 
 def generate_blueprint(history, api_key):
     """Compiles the chat into a strategy document."""
@@ -49,7 +93,6 @@ def get_context(files):
             else:
                 text += io.StringIO(file.getvalue().decode("utf-8")).read()
         except Exception as e: 
-            # Use st.sidebar.error to show file reading failure without crashing the app
             st.sidebar.error(f"Failed to read {file.name}: {e}")
     return text
 
@@ -62,12 +105,6 @@ st.set_page_config(page_title="Project Echo: Cyber-Command Logic", page_icon="ðŸ
 # Custom CSS for a high-contrast Black, Blue, and Green aesthetic
 st.markdown("""
 <style>
-    /* Color Palette: 
-       Background: #000000 (Black)
-       Primary Text/Accent: #00FFFF (Bright Cyber-Blue)
-       Secondary Accent/Success: #00FF00 (Vibrant Green)
-    */
-
     /* 1. Overall App Background (Deep Black) */
     .stApp {
         background-color: #000000;
@@ -218,9 +255,22 @@ if prompt := st.chat_input("Query Case Documents..."):
     def run_agent(name, prompt_text, system_prompt, temp):
         try:
             client = Groq(api_key=api_key)
-            # Inject context directly into the System instruction
-            context_payload = context_data if context_data else 'NO FILES LOADED. ASK THE USER TO UPLOAD.'
-            full_system = f"{system_prompt}\n\n[CONTEXT]:\n{context_payload}"
+            
+            # --- AGENT LOGIC FOR INTERNET SEARCH ---
+            # 1. Decide if search is necessary (simple check)
+            # You can make this smarter later, but for now, we'll search if the user asks a question that is clearly *not* about the documents.
+            search_query = None
+            if not context_data and ("what is" in prompt_text.lower() or "current" in prompt_text.lower() or "latest" in prompt_text.lower()):
+                search_query = prompt_text
+            
+            # 2. Execute Search if needed
+            tavily_results = ""
+            if search_query:
+                tavily_results = tavily_search(search_query)
+
+            # 3. Inject Context and Tavily Results into the System Prompt
+            context_payload = context_data if context_data else 'NO LOCAL DOCUMENTS PROVIDED.'
+            full_system = f"{system_prompt}\n\n[LOCAL CONTEXT]:\n{context_payload}\n\n[EXTERNAL SEARCH DATA]:\n{tavily_results}"
             
             completion = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
@@ -235,7 +285,7 @@ if prompt := st.chat_input("Query Case Documents..."):
     with st.chat_message("assistant"):
         with ThreadPoolExecutor(max_workers=3) as executor:
             if exclusive_lex:
-                # RUN ONLY LEX (Low Temp for accuracy)
+                # RUN ONLY LEX 
                 futures = [executor.submit(run_agent, "Lex", f"[AUDIT TYPE: {case_type}] {prompt}", LEX_SYSTEM_PROMPT, 0.2)]
             else:
                 # RUN THE ORIGINAL DUO (Violet/Storm)
@@ -244,7 +294,7 @@ if prompt := st.chat_input("Query Case Documents..."):
                     executor.submit(run_agent, "Storm", prompt, STORM_SYSTEM_PROMPT, 0.9)
                 ]
             
-            with st.spinner("Synchronizing Agents..."):
+            with st.spinner("Synchronizing Agents & Searching Web..."):
                 results = [f.result() for f in futures]
         
         full_response = "\n\n---\n\n".join(results)
